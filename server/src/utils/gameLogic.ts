@@ -1,4 +1,4 @@
-import turf from '@turf/turf';
+import * as turf from '@turf/turf';
 
 /**
  * Determines if the user's position is within a specified radius of the goal position.

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 
+import ballIcon from '../assets/ball.png';
+import goalIcon from '../assets/goal.png';
+
 const containerStyle = {
   width: '100vw',
   height: '100vh',
@@ -19,9 +22,10 @@ type Position = {
 const MapComponent: React.FC = () => {
   const [currentPosition, setCurrentPosition] =
     useState<Position>(initialCenter);
-  const [goalPosition, setGoalPosition] = useState<Position | null>(null);
-  const [isMapsLoaded, setIsMapsLoaded] = useState(false); // State to track if Google Maps script has loaded
-  const googleMapsApiKey = 'AIzaSyCdtGPc2gg0Wh8UWRWDGDy8ChwLNyB5DnI'; // Replace with your API key
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [goalPosition, setGoalPosition] = useState<Position>(initialCenter);
+  const googleMapsApiKey = 'AIzaSyCdtGPc2gg0Wh8UWRWDGDy8ChwLNyB5DnI';
+  const [positionAquaired, setPositionAquaired] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -36,39 +40,45 @@ const MapComponent: React.FC = () => {
           lng: position.coords.longitude,
         };
         setCurrentPosition(newPos);
-        setGoalPosition({ lat: newPos.lat + 0.01, lng: newPos.lng + 0.01 });
+        setGoalPosition({ lat: newPos.lat + 0.1, lng: newPos.lng + 0.1 });
+        setPositionAquaired(true);
       },
       (error) => console.error('Error getting initial position', error),
       { enableHighAccuracy: true }
     );
+
+    const newWs = new WebSocket('ws://localhost:8080');
+    newWs.onopen = () => {
+      console.log('WebSocket connection established');
+      if (currentPosition) {
+        newWs.send(
+          JSON.stringify({ type: 'updatePosition', position: currentPosition })
+        );
+      }
+    };
+    newWs.onmessage = (event) => {
+      // pop an alert when isWithinGoalRadius returns true
+    };
+    setWs(newWs);
+
+    return () => {
+      if (newWs) newWs.close();
+    };
   }, []);
 
-  const ballIcon = isMapsLoaded
-    ? {
-        url: '/ball.png', // Replace with your ball icon URL
-        scaledSize: new window.google.maps.Size(100, 100),
-      }
-    : undefined;
-
-  const goalIcon = isMapsLoaded
-    ? {
-        url: '/goal.png', // Replace with your goal icon URL
-        scaledSize: new window.google.maps.Size(200, 100),
-      }
-    : undefined;
-
   return (
-    <LoadScript
-      googleMapsApiKey={googleMapsApiKey}
-      onLoad={() => setIsMapsLoaded(true)} // Set state to true when script has loaded
-    >
+    <LoadScript googleMapsApiKey={googleMapsApiKey}>
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={currentPosition}
-        zoom={15}
+        zoom={14}
       >
-        <Marker position={currentPosition} icon={ballIcon} />
-        {goalPosition && <Marker position={goalPosition} icon={goalIcon} />}
+        {positionAquaired && (
+          <>
+            <Marker position={currentPosition} icon={ballIcon} />
+            <Marker position={goalPosition} icon={goalIcon} />
+          </>
+        )}
       </GoogleMap>
     </LoadScript>
   );
